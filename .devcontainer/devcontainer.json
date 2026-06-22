@@ -1,0 +1,145 @@
+// Dev Container configuration
+// Compatible VS Code (server mode) + JetBrains Gateway (IntelliJ)
+// Runtime : Podman (rootless)
+//
+// Prérequis : configurer Podman comme runtime dans VS Code User Settings :
+//   "dev.containers.dockerPath": "podman"
+// Ou via CLI : devcontainer up --docker-path podman
+{
+    "name": "Java 25 - Enterprise",
+    "build": {
+        "dockerfile": "Dockerfile",
+        "context": "."
+    },
+
+    // ─── Podman (rootless) ───────────────────────────────────────────
+    // Podman nécessite --userns=keep-id pour mapper le UID hôte → container
+    "runArgs": [
+        "--userns=keep-id",
+        "--security-opt", "label=disable"
+    ],
+    "containerUser": "vscode",
+    "remoteUser": "vscode",
+    // Désactiver updateRemoteUserUID car Podman gère le mapping via keep-id
+    "updateRemoteUserUID": false,
+
+    // ─── Workspace ───────────────────────────────────────────────────
+    // Par défaut, le dossier local est bind-monté. Pour utiliser un volume
+    // persistant à la place (meilleure perf sur macOS/Windows), décommenter :
+    // "workspaceMount": "type=volume,source=${localWorkspaceFolderBasename}-src,target=/workspace,type=volume",
+    // "workspaceFolder": "/workspace",
+
+    // ─── Montages ────────────────────────────────────────────────────
+    "mounts": [
+        // Cache Maven persistant entre rebuilds du container
+        {
+            "type": "volume",
+            "source": "${localWorkspaceFolderBasename}-m2-repo",
+            "target": "/home/vscode/.m2/repository"
+        },
+        // Cache mvnd
+        {
+            "type": "volume",
+            "source": "${localWorkspaceFolderBasename}-mvnd-cache",
+            "target": "/home/vscode/.mvnd"
+        },
+        // Certificats entreprise depuis l'hôte
+        // Adapter le chemin source selon votre OS :
+        //   macOS  : "${localEnv:HOME}/certs-entreprise"
+        //   Windows: "${localEnv:USERPROFILE}/certs-entreprise"
+        //   Linux  : "${localEnv:HOME}/certs-entreprise"
+        // Placer vos fichiers .crt / .pem / .cer dans ce dossier sur l'hôte.
+        {
+            "type": "bind",
+            "source": "${localEnv:HOME}${localEnv:USERPROFILE}/certs-entreprise",
+            "target": "/usr/local/share/ca-certificates/enterprise"
+        },
+        // (Optionnel) Settings Maven entreprise (~/.m2/settings.xml)
+        // Décommenter si vous avez un settings.xml à partager
+        // {
+        //     "type": "bind",
+        //     "source": "${localEnv:HOME}${localEnv:USERPROFILE}/.m2/settings.xml",
+        //     "target": "/home/vscode/.m2/settings.xml"
+        // }
+
+        // Git config (aliases, credentials, user.name, user.email...)
+        {
+            "type": "bind",
+            "source": "${localEnv:HOME}${localEnv:USERPROFILE}/.gitconfig",
+            "target": "/home/vscode/.gitconfig"
+        }
+        // (Optionnel) Git credentials store
+        // Décommenter si vous utilisez un fichier ~/.git-credentials
+        // {
+        //     "type": "bind",
+        //     "source": "${localEnv:HOME}${localEnv:USERPROFILE}/.git-credentials",
+        //     "target": "/home/vscode/.git-credentials"
+        // }
+    ],
+
+    // ─── Variables d'environnement ───────────────────────────────────
+    "containerEnv": {
+        "JAVA_HOME": "/opt/java/openjdk",
+        "MAVEN_HOME": "/opt/maven",
+        "MVND_HOME": "/opt/mvnd",
+        "MAVEN_OPTS": "-Xmx2g"
+    },
+
+    // ─── Lifecycle hooks ─────────────────────────────────────────────
+    // Import des certificats au démarrage
+    "postStartCommand": "sudo /usr/local/bin/setup-certs.sh",
+
+    // ─── VS Code (server mode) ──────────────────────────────────────
+    "customizations": {
+        "vscode": {
+            "settings": {
+                "java.jdt.ls.java.home": "/opt/java/openjdk",
+                "java.configuration.runtimes": [
+                    {
+                        "name": "JavaSE-25",
+                        "path": "/opt/java/openjdk",
+                        "default": true
+                    }
+                ],
+                "maven.executable.path": "/opt/maven/bin/mvn",
+                "maven.terminal.customEnv": [
+                    {
+                        "environmentVariable": "JAVA_HOME",
+                        "value": "/opt/java/openjdk"
+                    }
+                ],
+                "terminal.integrated.defaultProfile.linux": "bash"
+            },
+            "extensions": [
+                "vscjava.vscode-java-pack",
+                "vscjava.vscode-maven",
+                "redhat.java",
+                "vscjava.vscode-java-debug",
+                "vscjava.vscode-java-test",
+                "vscjava.vscode-lombok",
+                "SonarSource.sonarlint-vscode",
+                "github.copilot",
+                "github.copilot-chat",
+                "42Crunch.vscode-openapi",
+                "likec4.likec4-vscode"
+            ]
+        }
+    },
+
+    // ─── Ports exposés ───────────────────────────────────────────────
+    "forwardPorts": [
+        8080,   // Application
+        5005,   // Debug remote Java
+        22      // SSH pour JetBrains Gateway
+    ],
+
+    // ─── Features (optionnel) ────────────────────────────────────────
+    "features": {
+        // SSH server pour connexion JetBrains Gateway
+        "ghcr.io/devcontainers/features/sshd:1": {
+            "version": "latest"
+        },
+        // Git LFS si nécessaire
+        "ghcr.io/devcontainers/features/git-lfs:1": {}
+    }
+}
