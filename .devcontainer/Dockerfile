@@ -15,6 +15,10 @@ RUN sed -i 's|http://archive.ubuntu.com|https://archive.ubuntu.com|g; s|http://s
     openssh-server sudo procps lsof jq \
     && rm -rf /var/lib/apt/lists/*
 
+# Ensure X11 socket dir can be managed by non-root users (VS Code helper on Podman).
+RUN mkdir -p /tmp/.X11-unix \
+    && chmod 1777 /tmp /tmp/.X11-unix
+
 # Installer OpenShift CLI (oc)
 RUN ARCH=$(dpkg --print-architecture) \
     && if [ "$ARCH" = "amd64" ]; then OC_ARCH="linux"; \
