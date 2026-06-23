@@ -11,9 +11,10 @@ ARG MVND_VERSION=1.0.2
 # Force HTTPS mirrors to avoid HTTP auth/proxy issues in some enterprise networks.
 RUN sed -i 's|http://archive.ubuntu.com|https://archive.ubuntu.com|g; s|http://security.ubuntu.com|https://security.ubuntu.com|g' /etc/apt/sources.list.d/ubuntu.sources \
     && apt-get update && apt-get install -y --no-install-recommends \
-    git curl wget unzip zip ca-certificates gnupg2 \
+    git curl wget unzip zip ca-certificates gnupg2 libcurl4-gnutls-dev libgnutls28-dev \
     openssh-server sudo procps lsof jq \
-    && rm -rf /var/lib/apt/lists/*
+    && rm -rf /var/lib/apt/lists/* \
+    && git config --system http.sslBackend gnutls
 
 # Ensure X11 socket dir can be managed by non-root users (VS Code helper on Podman).
 RUN mkdir -p /tmp/.X11-unix \
