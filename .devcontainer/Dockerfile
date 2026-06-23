@@ -78,7 +78,8 @@ RUN chmod +x /usr/local/bin/setup-certs.sh
 
 # Répertoires Maven/mvnd pour le cache
 RUN mkdir -p /home/${USERNAME}/.m2/repository /home/${USERNAME}/.mvnd \
-    && chown -R ${USERNAME}:${USERNAME} /home/${USERNAME}/.m2 /home/${USERNAME}/.mvnd
+    && touch /home/${USERNAME}/.hushlogin \
+    && chown -R ${USERNAME}:${USERNAME} /home/${USERNAME}/.m2 /home/${USERNAME}/.mvnd /home/${USERNAME}/.hushlogin
 
 # Répertoire pour les certificats montés depuis l'hôte
 RUN mkdir -p /usr/local/share/ca-certificates/enterprise
