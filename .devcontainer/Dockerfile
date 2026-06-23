@@ -8,7 +8,9 @@ ARG MAVEN_VERSION=3.9.9
 ARG MVND_VERSION=1.0.2
 
 # Packages de base + SSH server (pour JetBrains Gateway)
-RUN apt-get update && apt-get install -y --no-install-recommends \
+# Force HTTPS mirrors to avoid HTTP auth/proxy issues in some enterprise networks.
+RUN sed -i 's|http://archive.ubuntu.com|https://archive.ubuntu.com|g; s|http://security.ubuntu.com|https://security.ubuntu.com|g' /etc/apt/sources.list.d/ubuntu.sources \
+    && apt-get update && apt-get install -y --no-install-recommends \
     git curl wget unzip zip ca-certificates gnupg2 \
     openssh-server sudo procps lsof jq \
     && rm -rf /var/lib/apt/lists/*
@@ -23,9 +25,24 @@ RUN ARCH=$(dpkg --print-architecture) \
     && chmod +x /usr/local/bin/oc /usr/local/bin/kubectl
 
 # Créer l'utilisateur non-root
-RUN groupadd --gid ${USER_GID} ${USERNAME} \
-    && useradd --uid ${USER_UID} --gid ${USER_GID} -m ${USERNAME} -s /bin/bash \
-    && echo "${USERNAME} ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers.d/${USERNAME} \
+RUN EXISTING_UID_USER="$(getent passwd ${USER_UID} | cut -d: -f1 || true)" \
+    && if id -u ${USERNAME} >/dev/null 2>&1; then \
+        true; \
+    elif [ -n "${EXISTING_UID_USER}" ]; then \
+        usermod -l ${USERNAME} "${EXISTING_UID_USER}" \
+        && usermod -d /home/${USERNAME} -m ${USERNAME} \
+        && if getent group ${USER_GID} >/dev/null 2>&1; then \
+            EXISTING_GID_GROUP="$(getent group ${USER_GID} | cut -d: -f1)" \
+            && if [ "${EXISTING_GID_GROUP}" != "${USERNAME}" ]; then groupmod -n ${USERNAME} "${EXISTING_GID_GROUP}"; fi; \
+           else \
+            groupadd --gid ${USER_GID} ${USERNAME}; \
+           fi \
+        && usermod -g ${USER_GID} ${USERNAME}; \
+    else \
+        if ! getent group ${USER_GID} >/dev/null 2>&1; then groupadd --gid ${USER_GID} ${USERNAME}; fi \
+        && useradd --uid ${USER_UID} --gid ${USER_GID} -m ${USERNAME} -s /bin/bash; \
+    fi \
+    && echo "${USERNAME} ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/${USERNAME} \
     && chmod 0440 /etc/sudoers.d/${USERNAME}
 
 # Installer Maven
