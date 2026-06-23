@@ -20,6 +20,7 @@
     ],
     "containerUser": "vscode",
     "remoteUser": "vscode",
+    "userEnvProbe": "none",
     // Désactiver updateRemoteUserUID car Podman gère le mapping via keep-id
     "updateRemoteUserUID": false,
 
